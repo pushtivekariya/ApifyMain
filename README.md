@@ -47,7 +47,7 @@ Follow these steps to set up and run the application locally.
 ### 1. Clone the Repository (if not already done)
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/pushtivekariya/ApifyMain.git
 cd Apify
 ```
 
