@@ -1,0 +1,9 @@
+.customHeader {
+    .collapsedButton {
+        border: none;
+
+        &:hover {
+            background-color: gray;
+        }
+    }
+}

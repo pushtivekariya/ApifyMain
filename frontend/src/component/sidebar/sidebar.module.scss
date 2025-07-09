@@ -1,0 +1,19 @@
+.sidebar_wrapper{
+    .logo_wrapper{
+        height: 64px;
+        // margin-bottom: 24px;
+
+        padding: 10px 10px 10px 10px;
+        .sidebar_logo{
+            background-image: url('https://www.shutterstock.com/image-vector/eco-friendly-label-logo-design-260nw-2146574209.jpg');
+            height: 50px;
+            background-size: cover;
+            background-repeat: no-repeat;
+            width: 100%;
+            align-content: center;
+            justify-content: center;
+            display: flex;
+            font-size: 20px;
+        }
+    }
+}
