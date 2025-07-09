@@ -43,8 +43,46 @@ router.post('/actor-schema/:actorId', async (req, res) => {
         if (!actor) {
             return res.status(404).json({ message: 'Actor not found' });
         }
-        const inputSchema = actor.inputSchema;
-        res.json(inputSchema || {}); // Modified line
+
+        let inputSchema = actor.inputSchema;
+
+        // If inputSchema is undefined, try to derive it from exampleRunInput
+        if (!inputSchema && actor.exampleRunInput && actor.exampleRunInput.body) {
+            try {
+                // Attempt to parse the exampleRunInput.body as JSON
+                const parsedExampleInput = JSON.parse(actor.exampleRunInput.body);
+                // Create a basic schema structure from the parsed example input
+                inputSchema = {
+                    type: 'object',
+                    properties: {},
+                };
+                for (const key in parsedExampleInput) {
+                    if (Object.hasOwnProperty.call(parsedExampleInput, key)) {
+                        const value = parsedExampleInput[key];
+                        // Infer type based on JavaScript type, with special handling for 'helloWorld'
+                        let inferredType;
+                        if (key === 'helloWorld') {
+                            inferredType = 'string'; // Force 'helloWorld' to be string
+                        } else if (Array.isArray(value)) {
+                            inferredType = 'array';
+                        } else if (typeof value === 'boolean') {
+                            inferredType = 'boolean';
+                        } else if (typeof value === 'number') {
+                            inferredType = 'number';
+                        } else {
+                            inferredType = 'string';
+                        }
+                        inputSchema.properties[key] = { type: inferredType };
+                    }
+                }
+            } catch (parseError) {
+                console.error('Error parsing exampleRunInput.body:', parseError);
+                // Fallback to empty schema if parsing fails
+                inputSchema = {};
+            }
+        }
+
+        res.json(inputSchema || {});
     } catch (error) {
         console.error(`Error fetching schema for actor ${actorId}:`, error);
         res.status(500).json({ message: `Failed to fetch schema for actor ${actorId}`, error: error.message });

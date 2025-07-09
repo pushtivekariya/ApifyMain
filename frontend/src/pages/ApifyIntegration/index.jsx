@@ -106,9 +106,6 @@ const ApifyIntegration = () => {
                 Object.keys(data.properties).forEach(key => {
                     initialInputs[key] = data.properties[key].default || '';
                 });
-            } else if (selectedActor.id === 'Mm5IqNZeGf4LmgjIP') {
-                // Special handling for Mixcloud Audio Downloader if schema is not provided
-                initialInputs.links = ''; // Initialize as empty string, will be parsed later
             }
             setMappedInputs(initialInputs);
 
@@ -122,12 +119,14 @@ const ApifyIntegration = () => {
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
         setMappedInputs(prevInputs => {
-            if (name === 'links') {
-                // Split links by newline or comma and trim whitespace for Mixcloud actor
-                const linksArray = value.split(/[,\n]/).map(link => link.trim()).filter(link => link !== '');
+            // Check if the property type is an array in the schema (e.g., 'links')
+            const prop = actorSchema && actorSchema.properties ? actorSchema.properties[name] : null;
+            if (prop && prop.type === 'array') {
+                // Split by newline or comma and trim whitespace
+                const arrayValue = value.split(/\r?\n|,/).map(item => item.trim()).filter(item => item !== '');
                 return {
                     ...prevInputs,
-                    [name]: linksArray,
+                    [name]: arrayValue,
                 };
             }
             return {
@@ -237,60 +236,49 @@ const ApifyIntegration = () => {
             const prop = schemaProperties[key];
             let inputElement = null;
 
-            // Special handling for Mixcloud Audio Downloader 'links' input
-            if (selectedActor.id === 'Mm5IqNZeGf4LmgjIP' && key === 'links') {
-                inputElement = (
-                    <textarea
-                        name={key}
-                        value={Array.isArray(mappedInputs[key]) ? mappedInputs[key].join('\n') : ''}
-                        onChange={handleInputChange}
-                        placeholder="Enter Mixcloud URLs, one per line or comma-separated"
-                        rows="5"
-                        className={styles.schemaInput} // Apply schemaInput class
-                    ></textarea>
-                );
-            } else {
-                switch (prop.type) {
-                    case 'string':
-                        inputElement = (
-                            <input
-                                type="text"
-                                name={key}
-                                value={mappedInputs[key] || ''}
-                                onChange={handleInputChange}
-                                placeholder={prop.description || key}
-                                className={styles.schemaInput} // Apply schemaInput class
-                            />
-                        );
-                        break;
-                    case 'integer':
-                    case 'number':
-                        inputElement = (
-                            <input
-                                type="number"
-                                name={key}
-                                value={mappedInputs[key] || ''}
-                                onChange={handleInputChange}
-                                placeholder={prop.description || key}
-                                className={styles.schemaInput} // Apply schemaInput class
-                            />
-                        );
-                        break;
-                    case 'boolean':
-                        inputElement = (
-                            <input
-                                type="checkbox"
-                                name={key}
-                                checked={mappedInputs[key] || false}
-                                onChange={handleInputChange}
-                                className={styles.schemaInput} // Apply schemaInput class
-                            />
-                        );
-                        break;
-                    default:
-                        inputElement = <p>Unsupported type: {prop.type}</p>;
-                        break;
-                }
+            switch (prop.type) {
+                case 'string':
+                case 'integer':
+                case 'number':
+                    // Default to text input for string, number, integer
+                    inputElement = (
+                        <input
+                            type={prop.type === 'string' ? 'text' : 'number'}
+                            name={key}
+                            value={mappedInputs[key] || ''}
+                            onChange={handleInputChange}
+                            placeholder={prop.description || `Enter ${key} here`}
+                            className={styles.schemaInput}
+                        />
+                    );
+                    break;
+                case 'boolean':
+                    inputElement = (
+                        <input
+                            type="checkbox"
+                            name={key}
+                            checked={mappedInputs[key] || false}
+                            onChange={handleInputChange}
+                            className={styles.schemaInput}
+                        />
+                    );
+                    break;
+                case 'array':
+                    // Render textarea for array types (e.g., 'links')
+                    inputElement = (
+                        <textarea
+                            name={key}
+                            value={Array.isArray(mappedInputs[key]) ? mappedInputs[key].join('\n') : ''}
+                            onChange={handleInputChange}
+                            placeholder={`Enter ${key} (one per line or comma-separated)`}
+                            rows="5"
+                            className={styles.schemaInput}
+                        ></textarea>
+                    );
+                    break;
+                default:
+                    inputElement = <p>Unsupported type: {prop.type}</p>;
+                    break;
             }
 
             return (
