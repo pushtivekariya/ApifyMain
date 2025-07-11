@@ -1,0 +1,121 @@
+Apify Integration – Code Flow and Functionality
+
+===============================================
+1. Architecture Overview
+===============================================
+
+The app uses a client-server model:
+
+Frontend: A React app (using Vite) where users can input their Apify API key, choose actors, run them, and view results.
+
+Backend: A Node.js (Express) server that securely handles communication with the Apify API using the user’s API key.
+
+====================================================================
+2. Backend Implementation (Node.js/Express)
+====================================================================
+
+backend/app.js
+This file is the entry point for the backend application.
+
+Express Setup: Initializes an Express application.
+
+CORS: Enables Cross-Origin Resource Sharing (cors) to allow the frontend (running on a different port) to make requests to the backend.
+
+JSON Body Parsing: Uses express.json() middleware to parse incoming request bodies with JSON payloads.
+
+Port Configuration: Listens on port 3000 (or process.env.PORT).
+
+Route Mounting: Mounts the apifyRoutes (defined in backend/routes/apify.js) under the /api/apify path. This means all Apify-related endpoints will start with /api/apify.
+
+backend/routes/apify.js
+This file defines the API endpoints that interact with the Apify platform using the apify-client library.
+
+ApifyClient Initialization:
+A getApifyClient(apiKey) helper function is defined to create an instance of ApifyClient. It requires an apiKey to authenticate with Apify. This ensures that each API call is made with the user's provided API key.
+
+API Endpoints:
+
+POST /api/apify/actors
+Purpose: Lists available Apify actors.
+Request: Expects a JSON body with apiKey.
+Process: Retrieves apiKey from req.body. Uses apifyClient.actors().list() to fetch actors. Maps the results to return only id, name, and description of each actor.
+Response: Returns a JSON array of simplified actor objects.
+Error Handling: Catches and logs errors, returning a 500 status with an error message.
+
+POST /api/apify/actor-schema/:actorId
+Purpose: Fetches the input schema for a specific Apify actor.
+Request: Expects actorId in req.params and apiKey in req.body.
+Process: Retrieves actorId from req.params and apiKey from req.body. Fetches the actor details using apifyClient.actor(actorId).get().
+Schema Derivation Logic:
+If actor.inputSchema is directly available, it's used. Crucially, if inputSchema is undefined but actor.exampleRunInput exists (and has a body), it attempts to parse the exampleRunInput.body as JSON. From the parsed example input, it dynamically infers a basic schema (type: 'object', properties for each key) and attempts to determine the type (string, number, boolean, array) of each property. A special case forces helloWorld to be a string. This provides a fallback schema for actors that don't explicitly define one.
+Response: Returns the inferred or actual input schema as a JSON object.
+Error Handling: Handles actor not found (404) and other errors (500).
+
+POST /api/apify/run-actor/:actorId
+Purpose: Initiates a run for a specific Apify actor.
+Request: Expects actorId in req.params and apiKey, input (the actor's input data) in req.body.
+Process: Retrieves actorId, apiKey, and input. Calls apifyClient.actor(actorId).call(input, { contentType: 'application/json' }) to start the actor run.
+Response: Returns a JSON object with runId and status of the initiated run.
+Error Handling: Catches and logs errors (500).
+
+POST /api/apify/run-status/:runId
+Purpose: Retrieves the status of an ongoing or completed actor run.
+Request: Expects runId in req.params and apiKey in req.body.
+Process: Retrieves runId and apiKey. Uses apifyClient.run(runId).get() to fetch run details.
+Response: Returns a JSON object with id, status, and statusMessage of the run.
+Error Handling: Handles run not found (404) and other errors (500).
+
+POST /api/apify/run-results/:runId
+Purpose: Fetches the results (dataset items) of a completed actor run.
+Request: Expects runId in req.params and apiKey in req.body.
+Process: Retrieves runId and apiKey. Accesses the dataset associated with the run via apifyClient.run(runId).dataset(). Lists items from the dataset using dataset.listItems().
+Response: Returns a JSON array of the dataset items (the results of the actor run).
+Error Handling: Catches and logs errors (500).
+
+=======================================================================
+3. Frontend – User Interface and Data Flow
+=======================================================================
+
+frontend/src/App.jsx – Routing and Layout
+Uses React Router to define routes.
+Wraps content with MainLayout.
+Redirects root (/) to the Apify integration page.
+
+frontend/src/pages/ApifyIntegration/index.jsx – Main Integration Component
+State Variables
+apiKey: Stores the Apify API key.
+actors: List of available actors.
+selectedActor: Currently selected actor.
+actorSchema: Input schema for the selected actor.
+actorInput: Values entered by the user.
+runStatus: Status of the actor run.
+runResults: Final output of the run.
+message, error, isLoading: UI states for feedback and loading.
+
+Functions
+fetchActors()
+Sends a request to fetch actors using the API key and updates the list.
+
+fetchActorSchema(actorId)
+Fetches the input schema for the selected actor and sets up the form.
+
+runActor(actorId, input)
+Initiates a run with the given input and starts polling the status.
+
+checkRunStatus(runId)
+Periodically checks the status of the actor run.
+Stops polling on success or failure.
+If successful, fetches the final results.
+
+fetchRunResults(runId)
+Retrieves the dataset output of the completed run.
+
+UI Structure
+API Key Input: Field to enter the Apify API key.
+Actors List: Displays actors fetched from the backend.
+Actor Input Form: Dynamically generated based on the actor schema.
+Run Button: Starts the actor run with the provided input.
+Status Display: Shows the run status.
+Result Display: Shows formatted output after a successful run.
+Error and Loading States: Provides user feedback during processing.
+
